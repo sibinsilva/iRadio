@@ -94,12 +94,16 @@ def _fetch_one(country_code: str) -> list[dict]:
         # Get bitrate
         bitrate = s.get("bitrate") or 0
 
+        # Get favicon
+        favicon = (s.get("favicon") or "").strip()
+
         results.append({
             "name": name,
             "url": stream,
             "codec": codec.upper(),
             "bitrate": f"{bitrate}k" if bitrate else "",
-            "tags": tags
+            "tags": tags,
+            "favicon": favicon
         })
     logger.info("Loaded country=%s count=%d", country_code, len(results))
     return results
@@ -117,13 +121,14 @@ grouped_stations: dict[str, list[dict]] = {}
 featured_list = []
 for name, url in FALLBACK_STATIONS:
     k = str(next_station_key)
-    radio_stations[k] = {"name": f"Featured: {name}", "url": url}
+    radio_stations[k] = {"name": f"Featured: {name}", "url": url, "favicon": ""}
     featured_list.append({
         "key": k,
         "name": name,
         "codec": "MP3",
         "bitrate": "192k",
-        "tags": ["Featured", "High-Quality"]
+        "tags": ["Featured", "High-Quality"],
+        "favicon": ""
     })
     next_station_key += 1
 grouped_stations["Featured"] = featured_list
@@ -539,7 +544,37 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
   min-width: 0;
+}
+.cd-avatar-container {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cd-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cd-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 .cd-info span {
   font-weight: 600;
@@ -781,7 +816,7 @@ body {
 // Initial static stations table (Featured)
 const STATIONS = {
   {% for k, s in rs.items() %}
-  "{{ k }}": { name: {{ s.name|tojson }}, url: {{ s.url|tojson }} },
+  "{{ k }}": { name: {{ s.name|tojson }}, url: {{ s.url|tojson }}, favicon: {{ (s.get("favicon") or "")|tojson }} },
   {% endfor %}
 };
 
@@ -794,7 +829,8 @@ const countryCache = {
       name: {{ s.name|tojson }},
       codec: "{{ s.codec }}",
       bitrate: "{{ s.bitrate }}",
-      tags: {{ s.tags|tojson }}
+      tags: {{ s.tags|tojson }},
+      favicon: "{{ s.favicon }}"
     },
     {% endfor %}
   ]
@@ -804,6 +840,33 @@ let currentPlayingKey = null;
 let savedVolume = 80;
 let isMuted = false;
 let currentList = [...countryCache["FEATURED"]];
+
+// Fallback avatar handling
+function handleAvatarError(img, name) {
+  img.onerror = null;
+  const container = img.parentElement;
+  if (!container) return;
+  container.innerHTML = '';
+  
+  const initials = document.createElement('div');
+  initials.className = 'cd-avatar-fallback';
+  
+  const cleanName = name.replace('Featured: ', '').trim();
+  const letter = cleanName ? cleanName.charAt(0).toUpperCase() : '📻';
+  initials.innerText = letter;
+  
+  const colors = [
+    'linear-gradient(135deg, #ec4899, #8b5cf6)',
+    'linear-gradient(135deg, #3b82f6, #06b6d4)',
+    'linear-gradient(135deg, #10b981, #3b82f6)',
+    'linear-gradient(135deg, #f59e0b, #ef4444)',
+    'linear-gradient(135deg, #8b5cf6, #ec4899)'
+  ];
+  const charCode = letter.charCodeAt(0) || 0;
+  const colorIdx = charCode % colors.length;
+  initials.style.background = colors[colorIdx];
+  container.appendChild(initials);
+}
 
 // Load and Render Favorites on Startup
 function getFavorites() {
@@ -842,6 +905,9 @@ function renderFavorites() {
     card.className = `cd ${isActive ? 'active' : ''}`;
     card.id = `fav-card-${key}`;
     card.innerHTML = `
+      <div class="cd-avatar-container">
+        <img class="cd-avatar" src="${s.favicon || ''}" onerror="handleAvatarError(this, '${s.name}')" loading="lazy" alt=""/>
+      </div>
       <div class="cd-info">
         <span>${s.name}</span>
         <div class="cd-meta">
@@ -1116,6 +1182,9 @@ function renderCardList(container, list) {
     }
     
     card.innerHTML = `
+      <div class="cd-avatar-container">
+        <img class="cd-avatar" src="${s.favicon || ''}" onerror="handleAvatarError(this, '${s.name}')" loading="lazy" alt=""/>
+      </div>
       <div class="cd-info">
         <span>${s.name}</span>
         <div class="cd-meta">
@@ -1177,7 +1246,7 @@ function loadCountry(code, title) {
         countryCache[code] = data.stations;
         
         data.stations.forEach(s => {
-          STATIONS[s.key] = { name: s.name, url: s.url };
+          STATIONS[s.key] = { name: s.name, url: s.url, favicon: s.favicon };
         });
         
         currentList = [...data.stations];
@@ -1242,14 +1311,15 @@ def get_country_stations(country_code):
     formatted_stations = []
     for s in stations:
         key = str(next_station_key)
-        radio_stations[key] = {"name": f"{country_name}: {s['name']}", "url": s["url"]}
+        radio_stations[key] = {"name": f"{country_name}: {s['name']}", "url": s["url"], "favicon": s["favicon"]}
         formatted_stations.append({
             "key": key,
             "name": s["name"],
             "url": s["url"],
             "codec": s["codec"],
             "bitrate": s["bitrate"],
-            "tags": s["tags"]
+            "tags": s["tags"],
+            "favicon": s["favicon"]
         })
         next_station_key += 1
         
