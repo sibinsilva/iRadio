@@ -1571,10 +1571,16 @@ def health():
 
 # ── Entry point ──────────────────────────────────────────────────────
 
-def run():
+def run(headless: bool = False):
+    is_headless = headless or "--headless" in sys.argv
     url = "http://127.0.0.1:5000/"
 
     def _open():
+        if is_headless:
+            logger.info("Running in headless mode.")
+            logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:5000/", url)
+            return
+
         if sys.platform.startswith("linux"):
             if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
                 logger.info("Headless Linux environment detected (no DISPLAY/WAYLAND_DISPLAY).")
