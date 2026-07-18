@@ -117,6 +117,19 @@ next_station_key = 1
 radio_stations: dict[str, dict] = {}
 grouped_stations: dict[str, list[dict]] = {}
 
+import time
+sleep_timer: threading.Timer | None = None
+sleep_timer_end_time: float | None = None
+
+
+def _stop_from_timer():
+    global sleep_timer, sleep_timer_end_time
+    logger.info("Sleep timer expired. Stopping playback.")
+    player.stop()
+    sleep_timer = None
+    sleep_timer_end_time = None
+
+
 # 1. Load Featured Fallback stations immediately (no startup network block)
 featured_list = []
 for name, url in FALLBACK_STATIONS:
@@ -179,79 +192,127 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-.c { max-width: 980px; margin: 0 auto; padding: 24px; }
+.app-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+  width: 100%;
+}
 
-/* Header */
+.sidebar {
+  background: rgba(11, 8, 20, 0.4);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-right: 1px solid var(--border);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.main-content {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  max-width: 1100px;
+}
+
+/* Header inside sidebar */
 .hdr {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 .hdr h1 {
   font-family: 'Outfit', sans-serif;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
   background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
+  margin: 0;
 }
 .ver {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 10px;
   background: rgba(255, 255, 255, 0.04);
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 6px;
   color: var(--muted);
   border: 1px solid var(--border);
+  display: inline-block;
 }
 
-/* Country Selector Grid */
-.country-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 10px;
-  margin-bottom: 24px;
+/* Country Selector List inside sidebar */
+.country-grid-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .country-card {
-  background: var(--panel);
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 10px;
+  padding: 12px 16px;
   color: var(--text);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 12px;
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
+  text-align: left;
+  width: 100%;
 }
 .country-card:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-2px);
+  transform: translateX(2px);
 }
 .country-card.active {
-  background: rgba(6, 182, 212, 0.08);
+  background: rgba(6, 182, 212, 0.12);
   border-color: rgba(6, 182, 212, 0.4);
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
+  color: #fff;
 }
 .country-flag {
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
 }
 .country-name {
   font-family: 'Outfit', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
+  flex: 1;
+}
+
+/* Sleep Timer Styles */
+.sleep-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #032b3f;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-left: 6px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.sleep-btn.sleep-active {
+  color: var(--accent) !important;
 }
 
 /* Control Hub / Now Playing Bar */
@@ -707,6 +768,31 @@ body {
 }
 
 @media(max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: relative;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 20px;
+  }
+  .main-content {
+    padding: 20px;
+  }
+  .country-grid-vertical {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .country-card {
+    width: auto;
+    flex: 1 1 calc(33.33% - 8px);
+    min-width: 110px;
+    justify-content: center;
+    padding: 10px;
+  }
   .control-hub {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -722,65 +808,67 @@ body {
   .hub-controls {
     order: -1;
   }
-  .country-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
 }
 </style>
 </head>
 <body>
-<div class="c">
-  <div class="hdr">
-    <h1>iRadio Player</h1>
-    <span class="ver">v{{ v }}</span>
-  </div>
-
-  <!-- Country Selection Hub -->
-  <div class="sec">Select Country</div>
-  <div class="country-grid">
-    <button class="country-card active" id="btn-featured" onclick="loadFeatured()">
-      <span class="country-flag">⭐</span>
-      <span class="country-name">Featured</span>
-    </button>
-    {% for code, name, flag in cs %}
-    <button class="country-card" id="btn-{{ code }}" onclick="loadCountry('{{ code }}', '{{ flag }} {{ name }}')">
-      <span class="country-flag">{{ flag }}</span>
-      <span class="country-name">{{ name }}</span>
-    </button>
-    {% endfor %}
-  </div>
-
-  <!-- Favorites Section -->
-  <div id="fav-block" class="cb expanded">
-    <div class="ch" onclick="toggleCollapse(this.parentElement)">
-      <span>🌟 Starred Stations</span>
-      <div class="ch-arrow"></div>
+<div class="app-layout">
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="hdr">
+      <h1>iRadio Player</h1>
+      <span class="ver">v{{ v }}</span>
     </div>
-    <div class="cc">
-      <div class="g" id="favorites-grid">
-        <!-- Starred cards injected dynamically by JS -->
+
+    <div class="sec">Countries</div>
+    <div class="country-grid-vertical">
+      <button class="country-card active" id="btn-featured" onclick="loadFeatured()">
+        <span class="country-flag">⭐</span>
+        <span class="country-name">Featured</span>
+      </button>
+      {% for code, name, flag in cs %}
+      <button class="country-card" id="btn-{{ code }}" onclick="loadCountry('{{ code }}', '{{ flag }} {{ name }}')">
+        <span class="country-flag">{{ flag }}</span>
+        <span class="country-name">{{ name }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Content Area -->
+  <div class="main-content">
+    <!-- Favorites Section -->
+    <div id="fav-block" class="cb expanded">
+      <div class="ch" onclick="toggleCollapse(this.parentElement)">
+        <span>🌟 Starred Stations</span>
+        <div class="ch-arrow"></div>
+      </div>
+      <div class="cc">
+        <div class="g" id="favorites-grid">
+          <!-- Starred cards injected dynamically by JS -->
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Search Bar -->
-  <div class="search-box">
-    <div class="search-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    <!-- Search Bar -->
+    <div class="search-box">
+      <div class="search-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </div>
+      <input type="text" class="search-input" id="search" placeholder="Search within current list..." onkeyup="filterStations()"/>
     </div>
-    <input type="text" class="search-input" id="search" placeholder="Search within current list..." onkeyup="filterStations()"/>
-  </div>
 
-  <!-- Station Panel Header -->
-  <div class="sec">
-    <span id="country-title">Featured Stations</span>
-  </div>
+    <!-- Station Panel Header -->
+    <div class="sec">
+      <span id="country-title">Featured Stations</span>
+    </div>
 
-  <!-- Main Dynamic Stations Grid -->
-  <div class="cb expanded">
-    <div class="cc">
-      <div class="g" id="stations-grid">
-        <!-- Station cards rendered dynamically -->
+    <!-- Main Dynamic Stations Grid -->
+    <div class="cb expanded">
+      <div class="cc">
+        <div class="g" id="stations-grid">
+          <!-- Station cards rendered dynamically -->
+        </div>
       </div>
     </div>
   </div>
@@ -813,8 +901,12 @@ body {
     </button>
   </div>
 
-  <!-- Volume Controls -->
+  <!-- Volume & Sleep Controls -->
   <div class="volume-control">
+    <button class="icon-btn sleep-btn" id="sleep-btn" onclick="cycleSleepTimer()" title="Set Sleep Timer (Off -> 15m -> 30m -> 45m -> 60m)">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 11H7v-2h4V7h2v6z"/></svg>
+      <span id="sleep-badge" class="sleep-badge" style="display: none;"></span>
+    </button>
     <button class="vol-btn" onclick="toggleMute()" id="mute-btn" title="Mute/Unmute">
       <svg width="20" height="20" viewBox="0 0 24 24" id="volume-icon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
     </button>
@@ -876,6 +968,39 @@ function handleAvatarError(img, name) {
   const colorIdx = charCode % colors.length;
   initials.style.background = colors[colorIdx];
   container.appendChild(initials);
+}
+
+// Sleep Timer variables & functions
+const sleepOptions = [0, 15, 30, 45, 60];
+let currentSleepOptionIdx = 0;
+
+function cycleSleepTimer() {
+  currentSleepOptionIdx = (currentSleepOptionIdx + 1) % sleepOptions.length;
+  const minutes = sleepOptions[currentSleepOptionIdx];
+  
+  fetch(`/api/sleep/${minutes}`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      updateSleepUI(data.remaining);
+    })
+    .catch(err => console.error("Error setting sleep timer:", err));
+}
+
+function updateSleepUI(remainingSeconds) {
+  const badge = document.getElementById('sleep-badge');
+  const btn = document.getElementById('sleep-btn');
+  if (!badge || !btn) return;
+  
+  if (remainingSeconds > 0) {
+    badge.style.display = 'inline-block';
+    const mins = Math.ceil(remainingSeconds / 60);
+    badge.innerText = `${mins}m`;
+    btn.classList.add('sleep-active');
+  } else {
+    badge.style.display = 'none';
+    badge.innerText = '';
+    btn.classList.remove('sleep-active');
+  }
 }
 
 // Load and Render Favorites on Startup
@@ -1125,6 +1250,19 @@ function pollStatus() {
           if (!isMuted) savedVolume = data.volume;
         }
       }
+      
+      // Sync Sleep Timer
+      if (data.sleep_remaining !== undefined) {
+        updateSleepUI(data.sleep_remaining);
+        if (data.sleep_remaining > 0) {
+          const mins = Math.ceil(data.sleep_remaining / 60);
+          const optMins = [15, 30, 45, 60];
+          let nearestIdx = optMins.findIndex(m => m >= mins) + 1;
+          currentSleepOptionIdx = nearestIdx > 0 ? nearestIdx : 0;
+        } else {
+          currentSleepOptionIdx = 0;
+        }
+      }
     })
     .catch(err => console.error("Error polling player status:", err));
 }
@@ -1363,9 +1501,13 @@ def play_station(key):
 
 @app.route("/stop", methods=["POST"])
 def stop():
-    global current_station_name
+    global current_station_name, sleep_timer, sleep_timer_end_time
     player.stop()
     current_station_name = None
+    if sleep_timer:
+        sleep_timer.cancel()
+        sleep_timer = None
+        sleep_timer_end_time = None
     
     if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.args.get("ajax") == "1":
         return {"status": "ok"}
@@ -1378,9 +1520,37 @@ def set_volume(level):
     return {"status": "ok", "volume": level}
 
 
+@app.route("/api/sleep/<int:minutes>", methods=["POST"])
+def set_sleep_timer(minutes):
+    global sleep_timer, sleep_timer_end_time
+    if sleep_timer:
+        sleep_timer.cancel()
+        sleep_timer = None
+        sleep_timer_end_time = None
+    
+    if minutes > 0:
+        sleep_timer_end_time = time.time() + (minutes * 60)
+        sleep_timer = threading.Timer(minutes * 60, _stop_from_timer)
+        sleep_timer.daemon = True
+        sleep_timer.start()
+        logger.info("Sleep timer scheduled for %d minutes", minutes)
+        return {"status": "ok", "remaining": minutes * 60}
+    
+    logger.info("Sleep timer canceled")
+    return {"status": "ok", "remaining": 0}
+
+
 @app.route("/status")
 def get_status():
+    global sleep_timer_end_time
     st = player.status()
+    remaining_sleep = None
+    if sleep_timer_end_time is not None:
+        remaining_sleep = max(0, int(sleep_timer_end_time - time.time()))
+        if remaining_sleep == 0:
+            sleep_timer_end_time = None
+            remaining_sleep = None
+            
     return {
         "status": "ok",
         "state": st["state"],
@@ -1389,6 +1559,7 @@ def get_status():
         "volume": st["volume"],
         "current_station": current_station_name if player.is_playing() else None,
         "now_playing": st.get("now_playing"),
+        "sleep_remaining": remaining_sleep,
     }
 
 
