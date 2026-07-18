@@ -8,7 +8,7 @@ import vlc
 
 logger = logging.getLogger(__name__)
 
-_VLC_ARGS = "--no-xlib" if sys.platform != "darwin" else ""
+_VLC_ARGS = "--no-video --no-xlib" if sys.platform != "darwin" else "--no-video"
 
 
 class RadioPlayer:
@@ -37,14 +37,27 @@ class RadioPlayer:
         ):
             em.event_attach(evt, cb)
 
+    def _detach_events(self):
+        if self._player:
+            em = self._player.event_manager()
+            for evt in (
+                vlc.EventType.MediaPlayerPlaying,
+                vlc.EventType.MediaPlayerEncounteredError,
+                vlc.EventType.MediaPlayerStopped,
+                vlc.EventType.MediaPlayerBuffering,
+                vlc.EventType.MediaPlayerEndReached,
+            ):
+                try:
+                    em.event_detach(evt)
+                except Exception:
+                    pass
+
     def _on_playing(self, _):
         self._state = "playing"
-        logger.info("VLC playing url=%s", self._url)
 
     def _on_error(self, _):
         self._state = "error"
         self._error = "VLC playback error"
-        logger.error("VLC error url=%s", self._url)
 
     def _on_stopped(self, _):
         self._state = "stopped"
@@ -91,6 +104,7 @@ class RadioPlayer:
 
     def _release(self):
         if self._player:
+            self._detach_events()
             self._player.stop()
         if self._instance:
             self._instance.release()
