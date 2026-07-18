@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import ssl
+import sys
 import subprocess
 import shutil
 import threading
@@ -1574,6 +1575,11 @@ def run():
     url = "http://127.0.0.1:5000/"
 
     def _open():
+        if sys.platform.startswith("linux"):
+            if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+                logger.info("Headless Linux environment detected (no DISPLAY/WAYLAND_DISPLAY). Access the player at: %s", url)
+                return
+
         if os.name == "nt" and os.environ.get("IRADIO_OPEN_IE") == "1":
             ie = shutil.which("iexplore")
             if ie:
