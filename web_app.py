@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────
 
-APP_VERSION = "2026-03-04-6"
-STATIONS_PER_COUNTRY = 50
+APP_VERSION = "2026-03-04-7"
+STATIONS_PER_COUNTRY = 100
 ALLOWED_CODECS = frozenset({"mp3", "aac", "aac+", "ogg", "opus"})
 API_BASE = "https://de1.api.radio-browser.info/json/stations/bycountrycodeexact"
 COUNTRY_SOURCES = (
@@ -57,7 +57,7 @@ _ssl_ctx = ssl.create_default_context()
 
 def _fetch_one(country_code: str) -> list[dict]:
     """Fetch up to STATIONS_PER_COUNTRY stations for a country code."""
-    url = f"{API_BASE}/{country_code}"
+    url = f"{API_BASE}/{country_code}?order=votes&reverse=true"
     try:
         with urllib.request.urlopen(url, timeout=8, context=_ssl_ctx) as resp:
             data = json.load(resp)
@@ -1053,14 +1053,62 @@ function renderStations(stations) {
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--muted); padding: 40px;">No stations found for this category.</div>';
     return;
   }
+
+  const query = document.getElementById('search').value.toLowerCase().trim();
   
-  stations.forEach(s => {
+  if (query !== '' || stations.length <= 10) {
+    renderCardList(grid, stations);
+    return;
+  }
+  
+  const top10 = stations.slice(0, 10);
+  const remaining = stations.slice(10);
+  
+  renderCardList(grid, top10);
+  
+  const remContainer = document.createElement('div');
+  remContainer.id = 'remaining-container';
+  remContainer.className = 'g';
+  remContainer.style.display = 'none';
+  remContainer.style.gridColumn = '1 / -1';
+  renderCardList(remContainer, remaining);
+  grid.appendChild(remContainer);
+  
+  const btnContainer = document.createElement('div');
+  btnContainer.style.gridColumn = '1 / -1';
+  btnContainer.style.display = 'flex';
+  btnContainer.style.justifyContent = 'center';
+  btnContainer.style.margin = '20px 0 10px';
+  
+  const showMoreBtn = document.createElement('button');
+  showMoreBtn.className = 'btn';
+  showMoreBtn.id = 'show-more-btn';
+  showMoreBtn.style.background = 'rgba(255, 255, 255, 0.04)';
+  showMoreBtn.style.border = '1px solid var(--border)';
+  showMoreBtn.style.color = 'var(--text)';
+  showMoreBtn.innerHTML = `Show More Stations (+${remaining.length})`;
+  
+  showMoreBtn.onclick = () => {
+    if (remContainer.style.display === 'none') {
+      remContainer.style.display = 'grid';
+      showMoreBtn.innerHTML = 'Show Less Stations';
+    } else {
+      remContainer.style.display = 'none';
+      showMoreBtn.innerHTML = `Show More Stations (+${remaining.length})`;
+    }
+  };
+  
+  btnContainer.appendChild(showMoreBtn);
+  grid.appendChild(btnContainer);
+}
+
+function renderCardList(container, list) {
+  list.forEach(s => {
     const isActive = (s.key === currentPlayingKey);
     const card = document.createElement('div');
     card.className = `cd ${isActive ? 'active' : ''}`;
     card.id = `card-${s.key}`;
     
-    // Build badges
     let badgesHtml = '';
     if (s.codec) badgesHtml += `<span class="badge codec">${s.codec}</span>`;
     if (s.bitrate) badgesHtml += `<span class="badge">${s.bitrate}</span>`;
@@ -1086,7 +1134,7 @@ function renderStations(stations) {
         </button>
       </div>
     `;
-    grid.appendChild(card);
+    container.appendChild(card);
   });
   updateStarIcons();
 }
