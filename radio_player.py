@@ -35,12 +35,57 @@ def _bootstrap_linux():
         logger.error(_vlc_error_msg)
 
 
+def _bootstrap_windows():
+    global vlc, _vlc_error_msg
+    import zipfile
+    import urllib.request
+    import io
+
+    dest_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vlc_portable")
+    os.makedirs(dest_dir, exist_ok=True)
+    vlc_subdir = os.path.join(dest_dir, "vlc-3.0.20")
+
+    if not os.path.exists(vlc_subdir):
+        url = "https://get.videolan.org/vlc/3.0.20/win64/vlc-3.0.20-win64.zip"
+        logger.info("VLC not found. Downloading portable VLC 64-bit from %s...", url)
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                zip_data = resp.read()
+            logger.info("Download complete. Extracting to project directory...")
+            with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
+                zip_ref.extractall(dest_dir)
+            logger.info("Extraction complete.")
+        except Exception as e:
+            _vlc_error_msg = f"Windows portable VLC bootstrap failed: {e}. Please install VLC manually."
+            logger.error(_vlc_error_msg)
+            return
+
+    if os.path.exists(vlc_subdir):
+        try:
+            if hasattr(os, "add_dll_directory"):
+                os.add_dll_directory(vlc_subdir)
+            else:
+                os.environ["PATH"] = vlc_subdir + os.pathsep + os.environ["PATH"]
+            import vlc as loaded_vlc
+            vlc = loaded_vlc
+            logger.info("Portable VLC loaded successfully.")
+        except Exception as e:
+            _vlc_error_msg = f"Failed to load portable VLC DLLs: {e}. Please install VLC manually."
+            logger.error(_vlc_error_msg)
+
+
 try:
     import vlc as loaded_vlc
     vlc = loaded_vlc
 except (ImportError, OSError):
     if sys.platform.startswith("linux"):
         _bootstrap_linux()
+    elif sys.platform == "win32":
+        _bootstrap_windows()
     else:
         _vlc_error_msg = "VLC Player not found on this system. Please download/install VLC (64-bit)."
 
