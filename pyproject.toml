@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iradio"
+version = "1.0.0"
+description = "A gorgeous glassmorphism web-based radio player streaming 1000+ live stations using libVLC."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Flask>=2.0.0",
+    "python-vlc>=3.0.0",
+]
+
+[project.scripts]
+iradio = "web_app:run"
+
+[tool.setuptools]
+py-modules = ["web_app", "radio_player"]
