@@ -1571,20 +1571,31 @@ def health():
 
 # ── Entry point ──────────────────────────────────────────────────────
 
-def run(headless: bool = False):
+def run(headless: bool = False, port: int = 5000):
     is_headless = headless or "--headless" in sys.argv
-    url = "http://127.0.0.1:5000/"
+    
+    # Resolve running port (CLI overrides default keyword arg)
+    run_port = port
+    if "--port" in sys.argv:
+        try:
+            idx = sys.argv.index("--port")
+            if idx + 1 < len(sys.argv):
+                run_port = int(sys.argv[idx + 1])
+        except ValueError:
+            pass
+
+    url = f"http://127.0.0.1:{run_port}/"
 
     def _open():
         if is_headless:
             logger.info("Running in headless mode.")
-            logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:5000/", url)
+            logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:%d/", url, run_port)
             return
 
         if sys.platform.startswith("linux"):
             if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
                 logger.info("Headless Linux environment detected (no DISPLAY/WAYLAND_DISPLAY).")
-                logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:5000/", url)
+                logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:%d/", url, run_port)
                 return
 
         if os.name == "nt" and os.environ.get("IRADIO_OPEN_IE") == "1":
@@ -1598,7 +1609,7 @@ def run(headless: bool = False):
         webbrowser.open(url)
 
     threading.Timer(1.0, _open).start()
-    app.run(host="0.0.0.0", port=5000, use_reloader=False, threaded=True)
+    app.run(host="0.0.0.0", port=run_port, use_reloader=False, threaded=True)
 
 
 if __name__ == "__main__":
