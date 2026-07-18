@@ -65,7 +65,7 @@ def _fetch_one(country_code: str) -> list[dict]:
         logger.exception("Fetch failed country=%s", country_code)
         return []
 
-    results, seen = [], set()
+    results, seen_names, seen_streams = [], set(), set()
     for s in data:
         name = (s.get("name") or "").strip()
         stream = (s.get("url_resolved") or s.get("url") or "").strip()
@@ -78,10 +78,15 @@ def _fetch_one(country_code: str) -> list[dict]:
             or (codec and codec not in ALLOWED_CODECS)
         ):
             continue
-        key = (name.lower(), stream)
-        if key in seen:
+
+        name_lower = name.lower()
+        stream_norm = stream.lower().rstrip("/")
+
+        if name_lower in seen_names or stream_norm in seen_streams:
             continue
-        seen.add(key)
+
+        seen_names.add(name_lower)
+        seen_streams.add(stream_norm)
 
         # Get tags (genres) - split and take first 2
         raw_tags = s.get("tags") or ""
