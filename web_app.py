@@ -24,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────
 
-APP_VERSION = "2026-03-04-7"
-STATIONS_PER_COUNTRY = 100
+APP_VERSION = "2026-03-04-8"
 ALLOWED_CODECS = frozenset({"mp3", "aac", "aac+", "ogg", "opus"})
 API_BASE = "https://de1.api.radio-browser.info/json/stations/bycountrycodeexact"
 COUNTRY_SOURCES = (
@@ -102,8 +101,6 @@ def _fetch_one(country_code: str) -> list[dict]:
             "bitrate": f"{bitrate}k" if bitrate else "",
             "tags": tags
         })
-        if len(results) >= STATIONS_PER_COUNTRY:
-            break
     logger.info("Loaded country=%s count=%d", country_code, len(results))
     return results
 
