@@ -17,6 +17,23 @@ _vlc_error_msg = None
 
 def _bootstrap_linux():
     global vlc, _vlc_error_msg
+    # Configure PulseAudio & DBUS environment for headless SSH sessions
+    if hasattr(os, "getuid"):
+        if "PULSE_SERVER" not in os.environ:
+            try:
+                uid = os.getuid()
+                runtime = f"/run/user/{uid}"
+                if os.path.exists(f"{runtime}/pulse/native"):
+                    os.environ["XDG_RUNTIME_DIR"] = runtime
+                    os.environ["PULSE_SERVER"] = f"unix:{runtime}/pulse/native"
+                    os.environ.setdefault(
+                        "DBUS_SESSION_BUS_ADDRESS",
+                        f"unix:path={runtime}/bus",
+                    )
+                    logger.info("Configured PulseAudio & DBUS environment variables for user %d.", uid)
+            except Exception as e:
+                logger.warning("Failed to configure PulseAudio environment: %s", e)
+
     # 1. Try system package bootstrap
     if shutil.which("apt-get"):
         logger.info("libvlc not found. Bootstrapping minimal headless packages on Debian/Rpi...")
