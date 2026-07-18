@@ -1577,7 +1577,8 @@ def run():
     def _open():
         if sys.platform.startswith("linux"):
             if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-                logger.info("Headless Linux environment detected (no DISPLAY/WAYLAND_DISPLAY). Access the player at: %s", url)
+                logger.info("Headless Linux environment detected (no DISPLAY/WAYLAND_DISPLAY).")
+                logger.info("Access the player locally at: %s or over the network at: http://<your-pi-ip>:5000/", url)
                 return
 
         if os.name == "nt" and os.environ.get("IRADIO_OPEN_IE") == "1":
@@ -1591,7 +1592,7 @@ def run():
         webbrowser.open(url)
 
     threading.Timer(1.0, _open).start()
-    app.run(use_reloader=False, threaded=True)
+    app.run(host="0.0.0.0", port=5000, use_reloader=False, threaded=True)
 
 
 if __name__ == "__main__":
