@@ -1,79 +1,63 @@
-# iRadio
+# iRadio 📻
 
-A lightweight web-based internet radio player for your desktop. iRadio fetches live stations from the [Radio Browser API](https://www.radio-browser.info/) and streams them through VLC, presenting a clean dark-themed interface in your browser.
+A gorgeous, zero-configuration, glassmorphism web-based internet radio player. iRadio streams 1,000+ live stations from the [Radio Browser API](https://www.radio-browser.info/) and plays them through libVLC, presenting a stunning desktop experience.
 
-![iRadio Player UI](https://img.shields.io/badge/UI-Web%20Browser-38bdf8?style=flat-square) ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&logo=python) ![Flask](https://img.shields.io/badge/Flask-web%20server-000000?style=flat-square&logo=flask) ![VLC](https://img.shields.io/badge/VLC-libvlc-FF8800?style=flat-square&logo=vlc-media-player)
-
----
-
-## Features
-
-- **Multi-country station catalog** — up to 50 stations each from India, Ireland, UK, Canada, USA, and Dubai
-- **Automatic station discovery** — stations are fetched in parallel from the Radio Browser API on startup
-- **Codec filtering** — only MP3, AAC, AAC+, OGG, and Opus streams are included (no HLS)
-- **Fallback stations** — Radio Paradise, SomaFM Groove Salad, and KEXP are used when the API is unavailable
-- **Dark-themed web UI** — collapsible country sections, card-based station grid, real-time playback status
-- **VLC-powered playback** — reliable streaming backed by libVLC with event-driven state tracking
-- **Health check endpoint** — `/health` returns JSON with app version and station count
+![iRadio UI](https://img.shields.io/badge/UI-Glassmorphism%20SPA-06b6d4?style=flat-square) ![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python) ![Flask](https://img.shields.io/badge/Flask-Web%20Server-000000?style=flat-square&logo=flask) ![VLC](https://img.shields.io/badge/VLC-Headless%20libvlc-FF8800?style=flat-square&logo=vlc-media-player)
 
 ---
 
-## Prerequisites
+## Key Features
 
-| Requirement | Notes |
-|---|---|
-| Python 3.12+ | |
-| VLC / libVLC | Must be installed separately (see below) |
-| `flask` | Python package |
-| `python-vlc` | Python bindings for libVLC |
-
-### Install VLC
-
-**Ubuntu / Debian**
-```bash
-sudo apt-get install vlc libvlc-dev
-```
-
-**macOS (Homebrew)**
-```bash
-brew install --cask vlc
-```
-
-**Windows**  
-Download and install VLC from <https://www.videolan.org/vlc/>.
+*   **Modern Glassmorphism SPA**: High-fidelity dark mode with neon accents, Outfit typography, glowing states, and a smooth bottom controller complete with an equalizing wave animation.
+*   **Station Logos & Color Fallbacks**: Card listings feature lazy-loaded station icons. If a logo is missing or fails to load, it automatically creates a beautiful, unique CSS gradient avatar using the station's initials.
+*   **Zero-Configuration VLC Bootstrapping**:
+    *   **Windows**: If VLC isn't installed system-wide, the player automatically downloads, extracts, and runs a portable headless VLC build in a local directory (`vlc_portable/`).
+    *   **Raspberry Pi / Linux**: Headless environments automatically run `apt-get` packages installation (`libvlc-dev`, `vlc-plugin-base`).
+    *   **DummyPlayer Fallback**: If VLC completely fails to load, the app runs in a degraded mode, preventing startup crashes and showing setup instructions in the UI.
+*   **Unlimited Dynamic Streams**: Fetches 1,000+ stations sorted by popularity (votes). It instantly renders the Top 10 popular stations for each country, keeping the rest expandable under a "Show More (+X)" shelf.
+*   **Real-time Search & Favorites**: Instantly filters station cards by name in real-time. Star your favorite stations to pin them to the top of the dashboard (saved in browser `localStorage`).
+*   **One-Click Package Command**: Fully packaged using Python Wheel. Build and install it once, then launch it from anywhere simply by running `iradio`.
 
 ---
 
-## Installation
+## Installation & Setup
 
+iRadio can be installed natively as a Python package, which works identically on both **Windows** and **Linux/Raspberry Pi**.
+
+### 1. Build and Install the Wheel
 ```bash
 # Clone the repository
 git clone https://github.com/sibinsilva/iRadio.git
 cd iRadio
 
-# Install Python dependencies
-pip install flask python-vlc
+# Build the package
+pip install build
+python -m build
+
+# Install the wheel locally
+pip install dist/iradio-1.0.0-py3-none-any.whl
 ```
+
+### 2. Run iRadio
+You can now start the player from any terminal or folder:
+```bash
+iradio
+```
+This command starts the Flask server and opens `http://127.0.0.1:5000` in your default web browser automatically.
 
 ---
 
-## Usage
+## Dynamic VLC Bootstrapping Internals
 
-```bash
-python iRadio.py
-```
+The player manages `libvlc` dependencies dynamically upon launching:
 
-The app will:
-1. Fetch stations from the Radio Browser API (runs in parallel — takes a few seconds)
-2. Start a Flask web server at `http://127.0.0.1:5000/`
-3. Automatically open the interface in your default web browser
-
-### Web Interface
-
-- Click a **country section** to expand it and see available stations
-- Click **Play** on any station card to start streaming
-- Click **Stop** at the top to stop playback
-- The "Now Playing" bar shows the current station name and VLC state (`buffering`, `playing`, `error`, …)
+1.  **System Check**: Python checks if `vlc` can be loaded globally. If yes, it runs immediately.
+2.  **Windows Portable Fallback**: If missing on Windows, it downloads the official 64-bit portable VLC archive, extracts it to `vlc_portable/`, and registers the DLL search path using `os.add_dll_directory` at runtime.
+3.  **Linux/Debian Fallback**: If missing on a Debian/Raspberry Pi environment, it invokes a headless bootstrap subprocess:
+    ```bash
+    sudo apt-get update && sudo apt-get install -y --no-install-recommends libvlc-dev vlc-plugin-base
+    ```
+4.  **Degraded Mode**: If all setups fail, the app switches to `DummyPlayer`, logging errors to the console and rendering the setup warnings in the web browser controller.
 
 ---
 
@@ -81,50 +65,28 @@ The app will:
 
 ```
 iRadio/
-├── iRadio.py          # Entry point — calls web_app.run()
-├── radio_player.py    # Thread-safe VLC-backed RadioPlayer class
-└── web_app.py         # Flask app: station fetching, routing, HTML template
+├── pyproject.toml     # Packaging and entrypoint console_scripts configuration
+├── radio_player.py    # VLC player wrapper with events, RLock threads, and DummyPlayer
+├── web_app.py         # Flask routing, Radio Browser API query logic, and SPA HTML/CSS/JS
+└── README.md          # Project documentation
 ```
 
-| File | Responsibility |
-|---|---|
-| `iRadio.py` | Thin entry point |
-| `radio_player.py` | Wraps libVLC; exposes `play(url)`, `stop()`, `is_playing()`, `status()` |
-| `web_app.py` | Fetches & groups stations, serves the web UI, handles all HTTP routes |
-
 ---
 
-## API Endpoints
+## API & Client Integration
 
-| Method | Route | Description |
-|---|---|---|
-| `GET` | `/` | Main web interface |
-| `GET` | `/play/<key>` | Start playing the station with the given key |
-| `POST` | `/stop` | Stop the currently playing station |
-| `GET` | `/health` | JSON health check: `{ status, stations, version }` |
-
----
-
-## Configuration
-
-All configuration lives in `web_app.py` as module-level constants:
-
-| Constant | Default | Description |
-|---|---|---|
-| `STATIONS_PER_COUNTRY` | `50` | Maximum stations fetched per country |
-| `ALLOWED_CODECS` | `mp3, aac, aac+, ogg, opus` | Stream codecs accepted |
-| `COUNTRY_SOURCES` | IN, IE, GB, CA, US, AE | Countries and their ISO codes |
-| `FALLBACK_STATIONS` | Radio Paradise, SomaFM, KEXP | Used when the API is unreachable |
-| `APP_VERSION` | `2026-03-04-5` | Displayed in the UI and health endpoint |
-
-### Environment Variables
-
-| Variable | Description |
-|---|---|
-| `IRADIO_OPEN_IE=1` | Open the browser using Internet Explorer (Windows only) |
+| Route | Method | Description |
+|:---|:---|:---|
+| `/` | `GET` | Renders the main Single Page Application dashboard |
+| `/api/stations/<country_code>` | `GET` | Fetches, deduplicates, and caches country stations dynamically |
+| `/play/<key>` | `GET` | Starts background thread streaming of a station stream |
+| `/stop` | `POST` | Stops background player streaming |
+| `/volume/<level>` | `POST` | Updates the player volume (0 - 100) |
+| `/status` | `GET` | Returns player status JSON (state, url, current volume, errors) |
+| `/health` | `GET` | Basic check endpoint for container environments |
 
 ---
 
 ## License
 
-This project does not currently include a license file. All rights reserved by the author.
+This project is licensed under the MIT License. Feel free to use, modify, and distribute it!

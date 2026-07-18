@@ -1,6 +1,7 @@
 """VLC-based radio player with event tracking."""
 
 import logging
+import os
 import sys
 import threading
 import shutil
@@ -119,6 +120,7 @@ class DummyPlayer:
             "error": self._error,
             "url": self._url,
             "volume": self._volume,
+            "now_playing": None,
         }
 
 
@@ -217,12 +219,34 @@ if vlc is not None:
                 if self._player:
                     self._player.audio_set_volume(self._volume)
 
+        def get_now_playing(self) -> str | None:
+            with self._lock:
+                if not self._player:
+                    return None
+                media = self._player.get_media()
+                if not media:
+                    return None
+                try:
+                    now_playing = media.get_meta(vlc.Meta.NowPlaying)
+                    if now_playing:
+                        return now_playing.strip()
+                    title = media.get_meta(vlc.Meta.Title)
+                    artist = media.get_meta(vlc.Meta.Artist)
+                    if title and artist:
+                        return f"{artist.strip()} - {title.strip()}"
+                    elif title:
+                        return title.strip()
+                except Exception:
+                    pass
+                return None
+
         def status(self) -> dict:
             return {
                 "state": self._state,
                 "error": self._error,
                 "url": self._url,
                 "volume": self._volume,
+                "now_playing": self.get_now_playing(),
             }
 
         # ── Internal ─────────────────────────────────────────────────────

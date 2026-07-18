@@ -295,6 +295,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.hub-song {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: -2px;
+  font-family: 'Inter', sans-serif;
+}
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -782,6 +791,7 @@ body {
   <!-- Info -->
   <div class="now-playing-info">
     <b id="hub-title">No station playing</b>
+    <span id="hub-song" class="hub-song" style="display: none;"></span>
     <div class="status-badge">
       <div class="status-dot" id="status-dot"></div>
       <span id="status-text">Stopped</span>
@@ -1086,12 +1096,23 @@ function pollStatus() {
               updateActiveCards(matchedKey);
             }
           }
+          const songText = document.getElementById('hub-song');
+          if (data.now_playing) {
+            songText.innerText = data.now_playing;
+            songText.style.display = 'block';
+          } else {
+            songText.style.display = 'none';
+            songText.innerText = '';
+          }
         } else {
           if (currentPlayingKey !== null) {
             currentPlayingKey = null;
             document.getElementById('hub-title').innerText = "No station playing";
             updateActiveCards(null);
           }
+          const songText = document.getElementById('hub-song');
+          songText.style.display = 'none';
+          songText.innerText = '';
         }
       }
       
@@ -1367,6 +1388,7 @@ def get_status():
         "url": st["url"],
         "volume": st["volume"],
         "current_station": current_station_name if player.is_playing() else None,
+        "now_playing": st.get("now_playing"),
     }
 
 
