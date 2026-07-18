@@ -17,6 +17,7 @@ _vlc_error_msg = None
 
 def _bootstrap_linux():
     global vlc, _vlc_error_msg
+    # 1. Try system package bootstrap
     if shutil.which("apt-get"):
         logger.info("libvlc not found. Bootstrapping minimal headless packages on Debian/Rpi...")
         try:
@@ -26,13 +27,25 @@ def _bootstrap_linux():
                 "libvlc-dev", "vlc-plugin-base"
             ], check=True)
             logger.info("Headless VLC packages installed successfully.")
+        except Exception as e:
+            logger.warning("System packages bootstrap failed: %s", e)
+
+    # 2. Try python-vlc import & pip installation if needed
+    try:
+        import vlc as loaded_vlc
+        vlc = loaded_vlc
+    except ImportError:
+        logger.info("python-vlc bindings missing. Attempting pip installation...")
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "install", "python-vlc"], check=True)
             import vlc as loaded_vlc
             vlc = loaded_vlc
+            logger.info("python-vlc bindings installed successfully.")
         except Exception as e:
-            _vlc_error_msg = f"Raspberry Pi bootstrap failed: {e}. Please run manually: sudo apt-get install --no-install-recommends libvlc-dev vlc-plugin-base"
+            _vlc_error_msg = f"Raspberry Pi bootstrap failed: {e}. Please run manually: pip install python-vlc && sudo apt-get install --no-install-recommends libvlc-dev vlc-plugin-base"
             logger.error(_vlc_error_msg)
-    else:
-        _vlc_error_msg = "VLC library missing. Please install libvlc-dev vlc-plugin-base on your system."
+    except Exception as e:
+        _vlc_error_msg = f"VLC loading failed: {e}."
         logger.error(_vlc_error_msg)
 
 
